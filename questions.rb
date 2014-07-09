@@ -5,7 +5,12 @@ require 'mysql'
 require 'watir'
 
 class R5
+  attr_accessor :url
   URL = "http://www.tizi.com/paper/paper_question/get_question"
+
+  def initialize(page, nselect, cselect, sid, qtype, level, ver)
+    @url = URL+"?page=#{page}&nselect=#{nselect}&cselect=#{cselect}&sid=#{sid}&qtype=#{qtype}&qlevel=#{level}&ver=#{ver}"
+  end
 end
 
 
@@ -52,7 +57,7 @@ uri = "http://www.tizi.com/paper/paper_question/get_question?page=1&nselect=1318
 
 class LoopIndex
 
-  attr_accessor :subjectIds, :cur_subject_id, :cur_question_type_id, :cur_topic_id, :cur_page, :topicIds, :qTypeIds, :cur_ver, :cur_level_id, :cur_parent_topic_id, :categories
+  attr_accessor :subjectIds, :cur_subject_id, :cur_question_type_id, :cur_topic_id, :cur_page, :topicIds, :qTypeIds, :cur_ver, :cur_level_id, :cur_parent_topic_id, :categories, :level, :page
 
   def initialize(cur_page, cur_topic_id, cur_parent_topic_id, cur_subject_id, cur_question_type_id, cur_level_id, cur_ver, subjectIds, topicIds, categories, qTypeIds)
     @cur_page = cur_page
@@ -66,6 +71,8 @@ class LoopIndex
     @topicIds = topicIds
     @categories = categories
     @qTypeIds = qTypeIds
+    @level = (1 .. 5)
+    @page = (1 .. 100)
   end
 end
 
@@ -114,16 +121,51 @@ begin
   loop.topicIds = topicIds
 
 
+  p loop.subjectIds
+  p loop.topicIds
+  p loop.categories
+  p loop.qTypeIds
+
+  threads = []
+  conns = []
+  m = Mutex.new
+  count_thread = 0
+
+  i = 0
+  loop.subjectIds.each { |sid|
+    threads << Thread.new {
+      conn = Mysql.real_connect("localhost", "magpie", "magpie", "tizi", 3306)
+      conns << conn
+      loop.topicIds[sid.to_i].each { |nselect|
+        loop.qTypeIds[sid.to_i].each { |qtype|
+          loop.level.each { |level|
+            loop.page.each { |page|
+
+              questionListJson = nil
+
+              open(R5.new(page, nselect, loop.categories[sid.to_i], sid, qtype, level, Time.now.to_i*1000+rand(1000)).url) do |http|
+                questionListJson = JSON.parse http.read
+              end
+
+              break if questionListJson["question"].length == 0
+              questionListJson["question"].each { |q|
+                j = nil
+                m.synchronize {
+                  j = i
+                  i+=1
+                }
+                conn.query("insert into questions values(#{j},#{q["id"]},\"#{q["title"]}\",\"#{q["category_name"]}\",#{q["category_id"]},#{q["course_id"]},\"#{q["date"].to_s+" 00:00:00"}\",#{q["qtype"]},#{q["qlevel"]},\"#{q["qlevel_name"]}\",\"#{q["source"]}\",\"#{q["body"].gsub(/<img class=\"pre_img\" src=\"/, '').gsub(/\"\/>/, '')}\",\"#{q["answer"].gsub(/<img class=\"pre_img\" src=\"/, '').gsub(/\"\/>/, '')}\",\"#{q["analysis"].gsub(/<img class=\"pre_img\" src=\"/, '').gsub(/\"\/>/, '')}\")")
+                p j
+
+              }
+            }
+          }
+        }
+      }
+    }
 
 
-
-
-
-
-
-
-
-
+  }
 
 
 rescue Mysql::Error => e
@@ -135,8 +177,13 @@ ensure
 end
 
 
+threads.each { |tt|
+  tt.join
+}
 
-
+conns.each { |cc|
+  cc.close if cc
+}
 
 
 
