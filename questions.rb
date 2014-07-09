@@ -143,9 +143,15 @@ begin
 
               questionListJson = nil
 
-              open(R5.new(page, nselect, loop.categories[sid.to_i], sid, qtype, level, Time.now.to_i*1000+rand(1000)).url) do |http|
-                questionListJson = JSON.parse http.read
+              begin
+                open(R5.new(page, nselect, loop.categories[sid.to_i], sid, qtype, level, Time.now.to_i*1000+rand(1000)).url) do |http|
+                  questionListJson = JSON.parse http.read
+                end
+              rescue  => e
+                p "timeout"
+                redo
               end
+
 
               break if questionListJson["question"].length == 0
               questionListJson["question"].each { |q|
@@ -155,7 +161,7 @@ begin
                   i+=1
                 }
                 conn.query("insert into questions values(#{j},#{q["id"]},\"#{q["title"]}\",\"#{q["category_name"]}\",#{q["category_id"]},#{q["course_id"]},\"#{q["date"].to_s+" 00:00:00"}\",#{q["qtype"]},#{q["qlevel"]},\"#{q["qlevel_name"]}\",\"#{q["source"]}\",\"#{q["body"].gsub(/<img class=\"pre_img\" src=\"/, '').gsub(/\"\/>/, '')}\",\"#{q["answer"].gsub(/<img class=\"pre_img\" src=\"/, '').gsub(/\"\/>/, '')}\",\"#{q["analysis"].gsub(/<img class=\"pre_img\" src=\"/, '').gsub(/\"\/>/, '')}\")")
-                p j
+                #p j
 
               }
             }
