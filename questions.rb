@@ -45,7 +45,6 @@ class Question
     @answer =answer
     @analysis =analysis
   end
-
 end
 
 uri = "http://www.tizi.com/paper/paper_question/get_question?page=1&nselect=1318&cselect=1316&sid=10&qtype=0&qlevel=0&ver=1404531472045"
@@ -73,7 +72,7 @@ end
 
 begin
 
-  loop = LoopIndex.new(0, 0, 0, 0, 0, 0, 0, [], [], [],[])
+  loop = LoopIndex.new(0, 0, 0, 0, 0, 0, 0, [], [], [], [])
 
 # connect to the   server
   db = Mysql.init.options(Mysql::SET_CHARSET_NAME, 'utf8')
@@ -105,8 +104,6 @@ begin
   loop.categories = categories
 
 
-
-
   result = db.query("select s.id,t.raw_id from topics t,subjects s where s.subject = t.subject and s.stage = t.stage and t.id not in (select distinct tt.parent from topics tt ) and t.title not like '%知识点库'")
   result.each { |row|
     if !topicIds[row[0].to_i] then
@@ -116,10 +113,17 @@ begin
   }
   loop.topicIds = topicIds
 
-  p loop.topicIds
-    
-    
-    
+
+
+
+
+
+
+
+
+
+
+
 
 
 rescue Mysql::Error => e
