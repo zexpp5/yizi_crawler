@@ -111,7 +111,7 @@ begin
   loop.categories = categories
 
 
-  result = db.query("select s.id,t.raw_id from topics t,subjects s where s.subject = t.subject and s.stage = t.stage and t.id not in (select distinct tt.parent from topics tt ) and t.title not like '%知识点库'")
+  result = db.query("select s.id,t.raw_id from topics t,subjects s where s.subject = t.subject and s.stage = t.stage and t.raw_id not in (select distinct tt.parent from topics tt ) and t.title not like '%知识点库'")
   result.each { |row|
     if !topicIds[row[0].to_i] then
       topicIds[row[0].to_i] = []
@@ -133,12 +133,13 @@ begin
 
   i = 0
   loop.subjectIds.each { |sid|
-    threads << Thread.new {
+    loop.level.each { |level|
+
+      threads << Thread.new {
       conn = Mysql.real_connect("localhost", "magpie", "magpie", "tizi", 3306)
       conns << conn
       loop.topicIds[sid.to_i].each { |nselect|
         loop.qTypeIds[sid.to_i].each { |qtype|
-          loop.level.each { |level|
             loop.page.each { |page|
 
               questionListJson = nil
@@ -160,7 +161,7 @@ begin
                   j = i
                   i+=1
                 }
-                conn.query("insert into questions values(#{j},#{q["id"]},\"#{q["title"]}\",\"#{q["category_name"]}\",#{q["category_id"]},#{q["course_id"]},\"#{q["date"].to_s+" 00:00:00"}\",#{q["qtype"]},#{q["qlevel"]},\"#{q["qlevel_name"]}\",\"#{q["source"]}\",\"#{q["body"].gsub(/<img class=\"pre_img\" src=\"/, '').gsub(/\"\/>/, '')}\",\"#{q["answer"].gsub(/<img class=\"pre_img\" src=\"/, '').gsub(/\"\/>/, '')}\",\"#{q["analysis"].gsub(/<img class=\"pre_img\" src=\"/, '').gsub(/\"\/>/, '')}\")")
+                conn.query("insert into questions values(#{j},#{q["id"]},\"#{q["title"]}\",\"#{q["category_name"]}\",#{q["category_id"]},#{nselect},#{sid},#{q["course_id"]},\"#{q["date"].to_s+" 00:00:00"}\",#{q["qtype"]},#{q["qlevel"]},\"#{q["qlevel_name"]}\",\"#{q["source"]}\",\"#{q["body"].gsub(/<img class=\"pre_img\" src=\"/, '').gsub(/\"\/>/, '')}\",\"#{q["answer"].gsub(/<img class=\"pre_img\" src=\"/, '').gsub(/\"\/>/, '')}\",\"#{q["analysis"].gsub(/<img class=\"pre_img\" src=\"/, '').gsub(/\"\/>/, '')}\")")
                 #p j
 
               }
@@ -169,8 +170,6 @@ begin
         }
       }
     }
-
-
   }
 
 
